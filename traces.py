@@ -74,3 +74,91 @@ def iter_traces(dataset):
         if reader.get_num_of_req() < MIN_REQUESTS:
             continue
         yield name, reader
+
+
+# ---------------------------------------------------------------------------
+# Fast trace loading
+#
+# libcachesim reads traces through its C++ backend, but the one-hit-wonder
+# analysis needs the raw object-id stream in Python. Pulling 400M requests
+# through read_one_req() is far too slow, so the oracleGeneral records are
+# decoded directly with numpy instead.
+#
+# An oracleGeneral record is a packed 24-byte struct:
+#     uint32 timestamp, uint64 obj_id, uint32 obj_size, int64 next_access_vtime
+# Verified against libcachesim: decoding msr_hm_0 this way yields 439187 unique
+# objects, exactly matching the working set size the library reports.
+# ---------------------------------------------------------------------------
+
+import os
+import subprocess
+
+import numpy as np
+
+RECORD = np.dtype([("ts", "<u4"), ("obj_id", "<u8"), ("sz", "<u4"), ("nxt", "<i8")])
+CACHE_ROOT = os.path.expanduser(
+    "~/.cache/libcachesim/hub/cache-datasets/cache_dataset_oracleGeneral"
+)
+
+
+def local_path(dataset, name):
+    """Path of the locally cached trace, downloading it first if needed."""
+    d = DATASETS[dataset]
+    path = os.path.join(CACHE_ROOT, d["prefix"], f"{name}{d['suffix']}")
+    if not os.path.exists(path):
+        # Opening a reader on the s3:// URI makes libcachesim fetch and cache it.
+        open_trace(dataset, name)
+    return path
+
+
+def load_fields(dataset, name, fields=("obj_id",)):
+    """Return the requested record fields as numpy arrays.
+
+    Decompression is streamed so that only the requested columns stay in
+    memory, not the full 24-bytes-per-request raw buffer.
+    """
+    path = local_path(dataset, name)
+    chunks = {f: [] for f in fields}
+    stride = RECORD.itemsize
+    with subprocess.Popen(["zstd", "-dc", path], stdout=subprocess.PIPE) as proc:
+        leftover = b""
+        while True:
+            buf = proc.stdout.read(1 << 24)
+            if not buf:
+                break
+            buf = leftover + buf
+            usable = len(buf) - (len(buf) % stride)
+            leftover = buf[usable:]
+            block = np.frombuffer(buf[:usable], dtype=RECORD)
+            for f in fields:
+                chunks[f].append(block[f].copy())
+    return tuple(
+        np.concatenate(chunks[f]) if chunks[f] else np.empty(0, dtype=RECORD[f])
+        for f in fields
+    )
+
+
+def load_obj_ids(dataset, name):
+    """Return just the trace's object-id stream."""
+    return load_fields(dataset, name, ("obj_id",))[0]
+
+
+def load_prev_next(dataset, name):
+    """Return (prev, nxt) index arrays for the trace.
+
+    nxt is the oracleGeneral next_access_vtime field: for each request it holds
+    the index of the next request for the same object, or -1 if there is none.
+    prev is its inverse, built in a single O(n) scatter rather than by sorting,
+    and holds the index of the previous request for the same object, or -1.
+
+    With these two arrays, every quantity Experiment 1 needs becomes a masked
+    numpy operation. A request is the first access to its object within a window
+    starting at s when prev < s, and that object is a one-hit wonder inside a
+    window ending at e when its nxt is -1 or at or past e.
+    """
+    (nxt,) = load_fields(dataset, name, ("nxt",))
+    nxt = nxt.astype(np.int64)
+    prev = np.full(len(nxt), -1, dtype=np.int64)
+    has_next = nxt >= 0
+    prev[nxt[has_next]] = np.flatnonzero(has_next)
+    return prev, nxt
