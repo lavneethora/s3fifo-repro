@@ -12,6 +12,11 @@ older datasets, which is why MSR has 14 files on S3 but 13 traces in the paper.
 import libcachesim as lcs
 
 BUCKET = "s3://cache-datasets/cache_dataset_oracleGeneral"
+# Same objects over plain HTTPS. libcachesim can fetch s3:// URIs itself, but its
+# downloader runs at roughly 100 KB/s here while curl against the same bucket
+# sustains about 6 MB/s, so traces are prefetched into its cache directory
+# instead and the library then finds them locally.
+HTTP_BASE = "https://cache-datasets.s3.amazonaws.com/cache_dataset_oracleGeneral"
 
 # The paper's filter for the older datasets.
 MIN_REQUESTS = 1_000_000
@@ -54,13 +59,18 @@ def trace_uri(dataset, name):
 
 
 def open_trace(dataset, name):
-    """Open a trace reader.
+    """Open a trace reader on the locally cached file.
+
+    The local path is used rather than the s3:// URI on purpose. libcachesim
+    resolves an s3:// URI through boto3, which is slow and, inside a
+    multiprocessing worker, hangs outright. Traces are prefetched with curl
+    anyway, so the file is already on disk.
 
     ignore_obj_size matches the paper's section 5, which sets cache sizes as a
     percentage of the number of objects and does not consider object size.
     """
     return lcs.TraceReader(
-        trace=trace_uri(dataset, name),
+        trace=local_path(dataset, name),
         trace_type=lcs.TraceType.ORACLE_GENERAL_TRACE,
         reader_init_params=lcs.ReaderInitParam(ignore_obj_size=True),
     )
@@ -101,14 +111,43 @@ CACHE_ROOT = os.path.expanduser(
 )
 
 
-def local_path(dataset, name):
-    """Path of the locally cached trace, downloading it first if needed."""
+def http_url(dataset, name):
+    """Plain HTTPS URL for one trace."""
+    d = DATASETS[dataset]
+    return f"{HTTP_BASE}/{d['prefix']}/{name}{d['suffix']}"
+
+
+def local_path(dataset, name, download=True):
+    """Path of the locally cached trace, fetching it first if needed."""
     d = DATASETS[dataset]
     path = os.path.join(CACHE_ROOT, d["prefix"], f"{name}{d['suffix']}")
-    if not os.path.exists(path):
-        # Opening a reader on the s3:// URI makes libcachesim fetch and cache it.
-        open_trace(dataset, name)
+    if download and not os.path.exists(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        partial = path + ".part"
+        subprocess.run(
+            ["curl", "-sSfL", "--retry", "3", "-o", partial, http_url(dataset, name)],
+            check=True,
+        )
+        os.replace(partial, path)
     return path
+
+
+def prefetch(dataset, jobs=4):
+    """Download every trace in a dataset, a few at a time."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    names = DATASETS[dataset]["traces"]
+    missing = [n for n in names if not os.path.exists(local_path(dataset, n, download=False))]
+    if not missing:
+        print(f"  {DATASETS[dataset]['label']}: all {len(names)} traces already cached", flush=True)
+        return
+    print(f"  {DATASETS[dataset]['label']}: fetching {len(missing)} of {len(names)} traces",
+          flush=True)
+    done = 0
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        for name in pool.map(lambda n: (local_path(dataset, n), n)[1], missing):
+            done += 1
+            print(f"    [{done}/{len(missing)}] {name}", flush=True)
 
 
 def load_fields(dataset, name, fields=("obj_id",)):
