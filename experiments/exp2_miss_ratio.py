@@ -101,6 +101,10 @@ def run(datasets=("msr", "cloudphysics"), workers=None):
     done = completed_traces()
     jobs = [(d, n) for d in datasets for n in traces.DATASETS[d]["traces"]
             if (d, n) not in done]
+    # Longest traces first so one straggler cannot hold up the whole pool.
+    jobs.sort(key=lambda j: os.path.getsize(traces.local_path(*j, download=False))
+              if os.path.exists(traces.local_path(*j, download=False)) else 0,
+              reverse=True)
     if not jobs:
         print("  nothing to do, every trace is already in the CSV", flush=True)
         return OUT
@@ -115,6 +119,7 @@ def run(datasets=("msr", "cloudphysics"), workers=None):
         writer = csv.DictWriter(fh, fieldnames=FIELDS)
         if is_new:
             writer.writeheader()
+            fh.flush()
         with mp.Pool(workers) as pool:
             for i, (dataset, name, rows, secs) in enumerate(
                     pool.imap_unordered(run_trace, jobs), start=1):
