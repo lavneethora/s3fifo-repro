@@ -9,6 +9,12 @@ import os
 
 import matplotlib
 matplotlib.use("Agg")
+# Load the Agg backend eagerly. matplotlib normally defers this until the first
+# figure is created, but libcachesim gets imported in between (reduction_table
+# pulls in exp2_miss_ratio), and importing it after matplotlib but before the
+# backend has loaded breaks matplotlib's freetype linkage with
+# "module 'matplotlib.ft2font' has no attribute '__path__'".
+import matplotlib.backends.backend_agg  # noqa: F401
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
