@@ -37,6 +37,82 @@ Not reproduced, and out of scope for a laptop: Figure 8 (throughput scaling
 across 16 CPU cores) and the Cachelib prototype results, which need a
 dual-socket server, and Figure 9's flash write-amplification results.
 
+## Results
+
+Everything below comes from the CSVs in `results/`, over 120 traces and
+2.52 billion requests. `python run.py 7` reprints these numbers.
+
+### One-hit-wonder ratio (paper Table 1 and Figure 3)
+
+All six tabulated values reproduce within 0.04:
+
+| Dataset | Sequence length | Paper | Ours | Diff |
+|---|---|---|---|---|
+| MSR | full trace | 0.56 | 0.54 | -0.02 |
+| MSR | 10% of objects | 0.74 | 0.77 | +0.03 |
+| MSR | 1% of objects | 0.86 | 0.85 | -0.01 |
+| CloudPhysics | full trace | 0.40 | 0.41 | +0.01 |
+| CloudPhysics | 10% of objects | 0.71 | 0.75 | +0.04 |
+| CloudPhysics | 1% of objects | 0.80 | 0.83 | +0.03 |
+
+Our MSR traces total 409.8M requests against the paper's stated 410M, so the
+underlying data matches.
+
+### Miss ratio reduction from FIFO (paper Figures 6 and 7)
+
+Mean over all 120 traces:
+
+| Rank | Large cache (10% of footprint) | | Small cache (0.1%) | |
+|---|---|---|---|---|
+| 1 | **S3-FIFO** | 0.1479 | TwoQ | 0.0548 |
+| 2 | WTinyLFU | 0.1348 | **S3-FIFO** | 0.0533 |
+| 3 | LIRS | 0.1307 | ARC | 0.0513 |
+| 4 | ARC | 0.1128 | LHD | 0.0375 |
+
+S3-FIFO ranks first of eleven at the large cache size, which is the paper's
+central claim. At the small size it falls to second behind TwoQ. That is
+consistent with the paper's own explanation: when the cache is very small, new
+objects are evicted before they can demonstrate popularity, while TwoQ reserves
+a fixed fraction of space for new objects.
+
+Two details visible in the figures that are worth noting:
+
+- In Figure 6, S3-FIFO keeps a positive P10 at both cache sizes, while WTinyLFU
+  and LIRS go negative, meaning they are worse than plain FIFO on the bottom
+  decile of traces. This supports the paper's robustness argument.
+- In Figure 7, the win is driven by CloudPhysics. On MSR alone ARC very
+  slightly edges S3-FIFO (0.132 against 0.131); on CloudPhysics S3-FIFO is well
+  ahead (0.151 against 0.110).
+
+### Size of the small FIFO queue (paper Figure 11)
+
+Mean reduction over the 14 MSR traces:
+
+| Size of S | Large cache | Small cache |
+|---|---|---|
+| 0.01 | 0.1336 | -0.0008 |
+| 0.05 | **0.1373** | 0.0189 |
+| 0.10 (paper's choice) | 0.1312 | 0.0239 |
+| 0.25 | 0.1186 | **0.0259** |
+| 0.50 | 0.0858 | 0.0237 |
+
+This one only partly agrees with the paper. The optimum is shallow, but on MSR
+it sits at 5% for the large cache and 25% for the small one rather than at the
+paper's 10%. The paper chose 10% from experiments on 10 traces drawn from all 14
+of its datasets, and says it "generalizes well" rather than that it is optimal
+everywhere. On this single dataset 10% is within about 0.6 percentage points of
+the best setting at both cache sizes, so it reads as a reasonable compromise
+whose best value shifts with cache size, not as a contradiction.
+
+### Not reproduced
+
+Figure 8 (throughput scaling across 16 CPU cores) and the Cachelib prototype
+results need a dual-socket server rather than a laptop. Figure 9's flash
+write-amplification results are also out of scope. Of the paper's 14 datasets,
+12 were omitted for size: the full set runs to several TB, against 11 GB for the
+two reproduced here.
+
+
 ## Setup
 
 Needs Python 3.10 to 3.13 on arm64 macOS 15+ or Linux, where `libcachesim`
@@ -110,6 +186,13 @@ reference implementation:
 
 Taking the pseudocode's threshold with the prose's reset matches the reference
 implementation to within 0.0014 absolute miss ratio.
+
+The public dataset is also inconsistent about the `next_access_vtime` field.
+MSR's `.oracleGeneral.zst` files index requests from 0, while CloudPhysics's
+`.oracleGeneral.bin.zst` files index from 1, and a few traces carry a single
+pointer one past the last request. Assuming one base silently mislabels every
+next pointer in the other dataset, so `traces.load_prev_next` detects the base
+per trace and the result is cross-checked against an independent object count.
 
 One difference in the trace data: the paper's Table 1 lists 13 MSR traces after
 excluding any with fewer than 1 million requests, but the public dataset has 14
