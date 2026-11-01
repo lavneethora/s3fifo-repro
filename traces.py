@@ -182,10 +182,37 @@ def load_obj_ids(dataset, name):
     return load_fields(dataset, name, ("obj_id",))[0]
 
 
-def load_prev_next(dataset, name):
-    """Return (prev, nxt) index arrays for the trace.
+def _detect_vtime_base(ids, nxt, sample=200_000):
+    """Work out whether next_access_vtime is 0-based or 1-based for this trace.
 
-    nxt is the oracleGeneral next_access_vtime field: for each request it holds
+    The public dataset is not consistent about this. MSR's .oracleGeneral.zst
+    files index requests from 0, while CloudPhysics's .oracleGeneral.bin.zst
+    files index from 1, so a fixed assumption silently mislabels every next
+    pointer in one of the two datasets. The base is detected by checking which
+    interpretation actually lands on another request for the same object.
+    """
+    n = len(nxt)
+    candidates = np.flatnonzero(nxt >= 0)
+    if len(candidates) == 0:
+        return 0
+    if len(candidates) > sample:
+        candidates = candidates[:: max(len(candidates) // sample, 1)]
+
+    for base in (0, 1):
+        target = nxt[candidates] - base
+        in_range = (target >= 0) & (target < n)
+        # A handful of traces carry a single pointer one past the last request.
+        if in_range.mean() < 0.999:
+            continue
+        if np.all(ids[target[in_range]] == ids[candidates[in_range]]):
+            return base
+    raise ValueError(f"could not determine next_access_vtime base ({n} requests)")
+
+
+def load_prev_next(dataset, name):
+    """Return (prev, nxt) index arrays for the trace, both 0-based.
+
+    nxt is the oracleGeneral next_access_vtime field normalised so that it holds
     the index of the next request for the same object, or -1 if there is none.
     prev is its inverse, built in a single O(n) scatter rather than by sorting,
     and holds the index of the previous request for the same object, or -1.
@@ -195,9 +222,16 @@ def load_prev_next(dataset, name):
     starting at s when prev < s, and that object is a one-hit wonder inside a
     window ending at e when its nxt is -1 or at or past e.
     """
-    (nxt,) = load_fields(dataset, name, ("nxt",))
+    ids, nxt = load_fields(dataset, name, ("obj_id", "nxt"))
     nxt = nxt.astype(np.int64)
-    prev = np.full(len(nxt), -1, dtype=np.int64)
-    has_next = nxt >= 0
-    prev[nxt[has_next]] = np.flatnonzero(has_next)
-    return prev, nxt
+    n = len(nxt)
+
+    base = _detect_vtime_base(ids, nxt)
+    target = nxt - base
+    # Pointers past the end mean there is no next access.
+    has_next = (nxt >= 0) & (target >= 0) & (target < n)
+    del ids
+
+    prev = np.full(n, -1, dtype=np.int64)
+    prev[target[has_next]] = np.flatnonzero(has_next)
+    return prev, np.where(has_next, target, -1)
