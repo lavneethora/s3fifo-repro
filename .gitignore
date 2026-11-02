@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .DS_Store
 results/*.log
+report/paper_figures/
+report/node_modules/
+report/package*.json
