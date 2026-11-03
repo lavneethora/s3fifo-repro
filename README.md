@@ -15,6 +15,29 @@ capped at 3. The claim is that most web cache objects are "one-hit wonders" that
 are never requested again, so a small queue can flush them out before they
 pollute the cache, and that this beats far more complicated LRU-based designs.
 
+## At a glance
+
+Across **120 traces and 2.52 billion requests**, replaying two of the paper's
+datasets in full, the central claim holds. On the large cache size S3-FIFO gives
+the lowest miss ratio of the eleven algorithms tested, and its mean reduction
+over FIFO of **14.8%** matches the 14% the paper reports.
+
+![Miss ratio reduction from FIFO](figures/fig6_miss_ratio_reduction.png)
+
+S3-FIFO also keeps a positive P10 at both cache sizes, where TinyLFU and LIRS
+fall below zero: on the worst tenth of traces those two are beaten by plain
+FIFO. Full numbers, and the one place our results diverge, are in
+[Results](#results) below.
+
+Two things turned up that are not visible from reading the paper:
+
+- Its prose and its pseudocode disagree in two places, and the implementation
+  that matches the authors' reference takes one detail from each. See
+  [Notes on the paper](#notes-on-the-paper).
+- The public trace dataset indexes `next_access_vtime` from 0 in one dataset and
+  from 1 in another, which silently corrupts any analysis that assumes one
+  convention.
+
 ## What is reproduced
 
 The paper evaluates 6594 traces across 14 datasets, totalling several TB. Two of
