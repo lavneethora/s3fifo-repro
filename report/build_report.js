@@ -127,7 +127,7 @@ children.push(title("Reproducing S3-FIFO: Cache Eviction Using Only FIFO Queues"
 // ------------------------------------------- group member and contribution
 children.push(heading("Group Member and Contribution"));
 children.push(body(
-  "[Your full name], [your eRaider]@ttu.edu, R#[________]. This was a one-person project, " +
+  "Lavneet Hora, [your eRaider]@ttu.edu, R11905178. This was a one-person project, " +
   "so all work below was carried out by the single group member."
 ));
 children.push(bullet(
@@ -435,7 +435,7 @@ children.push(body(
 // -------------------------------------------------------------- references
 children.push(heading("References"));
 children.push(body(
-  "[1] Our reproduction code and results: [add your repository URL]. " +
+  "[1] Our reproduction code and results: https://github.com/lavneethora/s3fifo-repro. " +
   "The authors' original artifact is at https://github.com/Thesys-lab/sosp23-s3fifo.",
   { tight: true }
 ));
