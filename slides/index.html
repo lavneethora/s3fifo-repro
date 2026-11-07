@@ -285,7 +285,14 @@ body.show-notes .notes{
 body.show-notes .slide:not(.active) .notes{ display:none; }
 .deck-controls{ font-family:var(--body); font-size:13px; color:#999;
                 background:rgba(0,0,0,.55); padding:6px 14px; border-radius:20px; }
-@media print{ .notes{ display:none !important; } }
+/* Print/export: one 16:9 page per slide, no margins, so headless Chrome
+   produces a PDF that converts straight to 13.333 x 7.5in PowerPoint slides. */
+@page{ size:1920px 1080px; margin:0; }
+@media print{
+  .notes{ display:none !important; }
+  .deck-controls{ display:none !important; }
+  .slide{ break-inside:avoid; page-break-inside:avoid; }
+}
 </style>
 </head>
 <body>
