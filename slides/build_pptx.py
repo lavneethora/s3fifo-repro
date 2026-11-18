@@ -24,7 +24,7 @@ from pptx import Presentation
 from pptx.util import Inches
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from build_slides import SLIDES  # noqa: E402
+from build_slides import SLIDES, load_script_notes  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HTML = os.path.join(ROOT, "slides", "index.html")
@@ -60,6 +60,11 @@ def build():
     if shutil.which("pdftoppm") is None:
         sys.exit("pdftoppm not found; install poppler")
 
+    # Same source as the HTML deck, so the two never drift apart.
+    notes = load_script_notes()
+    if len(notes) != len(SLIDES):
+        notes = [s["notes"] for s in SLIDES]
+
     with tempfile.TemporaryDirectory() as tmp:
         pages = rasterise(render_pdf(tmp), tmp)
         if len(pages) != len(SLIDES):
@@ -72,8 +77,8 @@ def build():
         for i, page in enumerate(pages):
             slide = prs.slides.add_slide(blank)
             slide.shapes.add_picture(page, 0, 0, width=SLIDE_W, height=SLIDE_H)
-            if i < len(SLIDES):
-                slide.notes_slide.notes_text_frame.text = SLIDES[i]["notes"]
+            if i < len(notes):
+                slide.notes_slide.notes_text_frame.text = notes[i]
 
         prs.save(OUT)
 
