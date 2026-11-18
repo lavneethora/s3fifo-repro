@@ -94,10 +94,14 @@ field from 0 in one dataset and from 1 in another, which silently corrupts your
 analysis if you assume one convention.
 
 **Why is the small queue 10%?**
-The paper picked it from experiments on ten traces. I swept it and found the
-best value was 5% at the large cache and 25% at the small one. But the paper
-never claims 10% is optimal, it claims the algorithm isn't sensitive to it, and
-my curve is flat too, so this confirms their claim rather than contradicting it.
+The paper picked it from experiments on ten traces, and never claims it's
+optimal, only that the algorithm isn't sensitive to it. I swept it: my best was
+5% at the large cache and 25% at the small one, and 10% is within about 4% of
+my best. But my line does fall off, by 37% at a queue of half the cache. Their
+chart looks flatter mainly because its y-axis spans the full P10 to P90 range,
+zero to 0.4, while mine is zoomed to the mean alone. Their mean markers decline
+too, so the shape agrees. I'd say 10% is a safe default but "insensitive" is
+too strong at the top of the range.
 
 **What's "miss ratio reduction from FIFO"?**
 Absolute miss ratios vary hugely between traces, so you can't average them.
