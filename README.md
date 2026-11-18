@@ -119,13 +119,24 @@ Mean reduction over the 14 MSR traces:
 | 0.25 | 0.1186 | **0.0259** |
 | 0.50 | 0.0858 | 0.0237 |
 
-This one only partly agrees with the paper. The optimum is shallow, but on MSR
-it sits at 5% for the large cache and 25% for the small one rather than at the
-paper's 10%. The paper chose 10% from experiments on 10 traces drawn from all 14
-of its datasets, and says it "generalizes well" rather than that it is optimal
-everywhere. On this single dataset 10% is within about 0.6 percentage points of
-the best setting at both cache sizes, so it reads as a reasonable compromise
-whose best value shifts with cache size, not as a contradiction.
+On MSR the best setting is 5% for the large cache and 25% for the small one,
+not the paper's 10%. Two things are worth separating here.
+
+The paper claims in section 6.2 that S3-FIFO is not sensitive to the size of S.
+It never claims 10% is optimal on a given workload.
+
+The two figures are also drawn at very different scales, which is easy to
+misread. The paper's vertical axis covers the full P10 to P90 spread, 0 to
+roughly 0.4, so its mean line occupies a narrow band and looks nearly flat.
+Ours plots the mean alone on an axis auto-scaled to 0.086 to 0.137, so the same
+proportional change fills the frame. At matching scale the curves have the same
+shape, and the paper's own mean markers decline across its range too.
+
+So 10% is a defensible default, within 4.4% of our best at the large cache size
+and 8.0% at the small one. But the full range is not insensitive: moving S from
+10% to half the cache costs 37.5% of the benefit at the large cache size. The
+claim holds in the regime the paper works in, which is a small S, rather than
+across the board.
 
 ### Not reproduced
 
