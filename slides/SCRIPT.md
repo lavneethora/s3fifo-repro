@@ -61,6 +61,7 @@ Prompts, not sentences. Say them however they come out. About 11 minutes.
 - S fills: got requested? to M. never requested? dropped, key to G
 - that key comes back later: skip probation, straight to M
 - M is a clock sweep: counter above zero goes round, zero gets evicted
+- the four lines on screen are your summary, the paper's pseudocode is ~40 lines
 - nothing moves on a read, that's where the speed is
 
 ## 7. Two datasets, every trace
@@ -116,10 +117,12 @@ Prompts, not sentences. Say them however they come out. About 11 minutes.
 - one knob, the size of the small queue, they set it at 10%
 - you swept it: best was 5% large cache, 25% small cache
 - you nearly called it a disagreement
-- then reread 6.2: they claim it isn't sensitive, their figure is flat
-- they never claim 10% is optimal
-- yours is flat too, 10% is within half a point of your best at both sizes
-- so it backs them up, lesson was to check what was actually claimed
+- then reread 6.2: they claim it isn't sensitive, never claim 10% is optimal
+- your line does drop, and looks worse than theirs because of the axis
+- theirs is 0 to 0.4 (plots P10 to P90), yours is zoomed to the mean only
+- their mean markers come down too, same shape
+- 1% to 10% is within ~4% of your best, 50% costs you a third
+- so 10% is safe, but you'd push back on the word "insensitive"
 
 ## 13. Three gaps, one cause
 
