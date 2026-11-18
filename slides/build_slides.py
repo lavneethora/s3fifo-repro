@@ -274,9 +274,51 @@ SLIDES.append({
 })
 
 
+SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                      "SPEAKING_SCRIPT.md")
+
+
+def load_script_notes():
+    """Pull the spoken notes out of SPEAKING_SCRIPT.md, in slide order.
+
+    That file is the thing actually worth editing, so it is the source for the
+    speaker notes in both the HTML deck and the PowerPoint export. Each slide's
+    notes are its "What I should say" text plus its transition line, since the
+    transition is what you say on the way off that slide.
+
+    Returns [] if the file is missing, and the notes written inline below are
+    used instead.
+    """
+    if not os.path.exists(SCRIPT):
+        return []
+
+    import re
+    text = open(SCRIPT).read()
+    # Everything from one "## Slide N: ..." heading to the next.
+    blocks = re.split(r"^## Slide \d+:.*$", text, flags=re.M)[1:]
+
+    notes = []
+    for block in blocks:
+        say = re.search(r"\*\*What I should say:\*\*(.*?)(?=\*\*Transition|\Z)",
+                        block, re.S)
+        trans = re.search(r"\*\*Transition:\*\*(.*?)(?=\n## |\Z)", block, re.S)
+        parts = [m.group(1).strip() for m in (say, trans) if m and m.group(1).strip()]
+        notes.append("\n\n".join(parts))
+    return notes
+
+
 def build():
     base_css = open(os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "viewport-base.css")).read()
+
+    script_notes = load_script_notes()
+    if len(script_notes) == len(SLIDES):
+        for slide, note in zip(SLIDES, script_notes):
+            slide["notes"] = note
+        print(f"  notes taken from {os.path.basename(SCRIPT)}")
+    elif script_notes:
+        print(f"  warning: {len(script_notes)} script sections for "
+              f"{len(SLIDES)} slides, keeping the inline notes")
     design = img(os.path.join(FIG, "design_s3fifo.png"),
                  "The three queues of S3-FIFO: a small probationary queue S, a main queue M, and a ghost queue G",
                  "width:100%;height:270px;object-fit:contain")
@@ -455,7 +497,14 @@ body.show-notes .notes{
 body.show-notes .slide:not(.active) .notes{ display:none; }
 .deck-controls{ font-family:var(--body); font-size:13px; color:#999;
                 background:rgba(0,0,0,.55); padding:6px 14px; border-radius:20px; }
-@media print{ .notes{ display:none !important; } }
+/* Print/export: one 16:9 page per slide, no margins, so headless Chrome
+   produces a PDF that converts straight to 13.333 x 7.5in PowerPoint slides. */
+@page{ size:1920px 1080px; margin:0; }
+@media print{
+  .notes{ display:none !important; }
+  .deck-controls{ display:none !important; }
+  .slide{ break-inside:avoid; page-break-inside:avoid; }
+}
 </style>
 </head>
 <body>
