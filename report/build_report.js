@@ -383,14 +383,27 @@ children.push(table([2500, 2500, 2300, 2060], [
 children.push(spacer());
 children.push(body(
   "Taken at face value this looks like a disagreement, since our best setting is 5% on the large cache " +
-  "and 25% on the small one rather than the 10% the paper uses. It is worth being careful about what the " +
-  "paper actually claims. Section 6.2 states that S3-FIFO is not sensitive to the size of S, and the " +
-  "paper's own figure shows a mean line that is close to flat across a wide range of settings before " +
-  "falling away. It does not claim that 10% is optimal on every workload. Our curve is flat in the same " +
-  "way, and 10% is within about 0.6 percentage points of the best setting at both cache sizes. The result " +
-  "therefore confirms the claim that was made, which is insensitivity, rather than contradicting it. What " +
-  "our data adds is that the location of the shallow optimum moves with cache size, so 10% reads as a " +
-  "sensible compromise rather than a tuned value."
+  "and 25% on the small one, not the 10% the paper uses. The comparison needs care on two counts."
+));
+children.push(body(
+  "The first is what the paper actually claims. Section 6.2 states that S3-FIFO is not sensitive to the " +
+  "size of S. It does not claim that 10% is optimal on any particular workload."
+));
+children.push(body(
+  "The second is how the two figures are drawn, and this matters more than it sounds. The paper's vertical " +
+  "axis spans the full P10 to P90 spread, from 0 to roughly 0.4, so its mean line sits in a narrow band and " +
+  "looks almost flat. Ours plots the mean alone, on an axis auto-scaled to the range 0.086 to 0.137, so the " +
+  "same proportional change fills the whole frame. Compared at the same scale the two curves have the same " +
+  "shape: the reduction holds up while S is small and falls away once S grows. The paper's own mean markers " +
+  "decline across its range in exactly the same manner."
+));
+children.push(body(
+  "On our data 10% is a defensible default. It is within 4.4% of our best setting at the large cache size " +
+  "and 8.0% at the small one. The full range is not insensitive, however. Moving S from 10% to half the " +
+  "cache costs 37.5% of the benefit at the large cache size. We would therefore restate the finding as " +
+  "follows: the choice of S is uncritical while S stays small, which is the regime the paper works in and " +
+  "recommends, rather than insensitive across the whole range. Our figure makes that fall-off easy to see " +
+  "precisely because it is scaled to the mean."
 ));
 
 children.push(body(
