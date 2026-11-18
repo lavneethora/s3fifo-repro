@@ -502,9 +502,13 @@ object, and if that object's counter is above zero, it puts it back at the
 front and knocks the counter down by one. If the counter is already at zero,
 that object gets evicted.
 
-The code on the right is the whole algorithm, all four lines of it. And the
-thing to notice is nothing ever moves just because you read it. That's where
-all the speed comes from.
+The code on the right is the whole algorithm. That's my own summary of it, in
+four lines. The actual pseudocode in the paper is about forty lines, because it
+spells out each of the functions separately. Either way it fits on one slide,
+which is sort of the point.
+
+And the thing to notice is nothing ever moves just because you read it. That's
+where all the speed comes from.
 
 So that's the paper. Let me talk about what I actually ran.</div></section>
 <section class="slide" id="setup"><div class="chrome"><span>S3-FIFO · Yang et al., SOSP '23</span><span>07 / 14</span></div><div class="inner">
@@ -712,15 +716,24 @@ So I swept it, meaning I ran it at a bunch of different sizes to see what
 happened. And my best result was five percent on the large cache and
 twenty-five percent on the small cache. Not ten.
 
-So at first I wrote this down as a disagreement. But then I went back and
-reread what they actually claim in section 6.2, and they never say ten percent
-is the best value. What they say is the algorithm isn't very sensitive to this
-setting. And if you look at their chart, their line really is pretty flat
-across a wide range.
+So at first I wrote this down as a disagreement. But then I reread what they
+actually claim in section 6.2. They never say ten percent is the best value.
+What they say is that the algorithm isn't very sensitive to this setting.
 
-And mine is flat too. Ten percent is within about half a percentage point of my
-best value at both cache sizes. So this actually supports what they claimed, it
-just wasn't what I assumed they were claiming.
+Now, my line clearly drops off, and it looks like it drops off way harder than
+theirs. A lot of that is just the axis. Their y-axis goes from zero up to 0.4,
+because they're plotting the whole spread from P10 to P90. Mine is plotting
+only the mean, so it's zoomed right in and the same change fills the frame. If
+you look at their orange mean markers, they come down too.
+
+The shape is the same in both. It holds up while the small queue stays small,
+then falls off once the queue gets big. On my large cache, anywhere from one
+percent to ten percent is within about four percent of my best. Push it up to
+half the cache and you lose about a third of the benefit.
+
+So ten percent is a safe choice and my data supports that. I'd push back a
+little on the word insensitive though, because by the time you're at fifty
+percent it definitely is sensitive.
 
 That was probably the biggest thing I learned doing this project. Check what
 the paper actually says before you decide you've found a problem with it.
